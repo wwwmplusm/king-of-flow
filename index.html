@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Поток</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <div class="logo"><span class="dot"></span>Поток</div>
+      <div class="session" id="session"></div>
+    </header>
+
+    <section class="player">
+      <canvas id="viz"></canvas>
+      <div class="now">
+        <span class="tag" id="cat"></span>
+        <h1 id="title"></h1>
+        <p id="subtitle"></p>
+        <p id="tune"></p>
+        <div class="meta">
+          <span id="mod"></span>
+          <span id="clock">00:00</span>
+          <span id="upnext"></span>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="ctl small" id="shuffle" aria-label="Перемешивание" title="Перемешивание (S)">
+          <svg viewBox="0 0 24 24"><path d="M17 3l4 4-4 4V8h-2.6l-2.2 2.9-1.3-1.7L13.4 6H17zM3 6h4.6l8.8 12H17v-3l4 4-4 4v-3h-2.6L5.6 8H3zm0 10h2.6l2.2-2.9 1.3 1.7L7.6 18H3z"/></svg>
+        </button>
+        <button class="ctl" id="prev" aria-label="Предыдущий">
+          <svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
+        </button>
+        <button class="ctl play" id="play" aria-label="Играть">
+          <svg viewBox="0 0 24 24" class="i-play"><path d="M8 5v14l11-7z"/></svg>
+          <svg viewBox="0 0 24 24" class="i-pause"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+        </button>
+        <button class="ctl" id="next" aria-label="Следующий">
+          <svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>
+        </button>
+        <span class="ctl small spacer"></span>
+      </div>
+    </section>
+
+    <section class="settings">
+      <div class="row">
+        <label>Нейромодуляция</label>
+        <div class="seg" id="depth">
+          <button data-v="0">Выкл</button>
+          <button data-v="1">Низкая</button>
+          <button data-v="2">Средняя</button>
+          <button data-v="3">Высокая</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Таймер</label>
+        <div class="seg" id="timer">
+          <button data-v="0">∞</button>
+          <button data-v="25">25 мин</button>
+          <button data-v="50">50 мин</button>
+          <button data-v="90">90 мин</button>
+        </div>
+      </div>
+      <div class="row">
+        <label for="vol">Громкость</label>
+        <input type="range" id="vol" min="0" max="100" value="80">
+      </div>
+    </section>
+
+    <nav class="seg filter" id="filter">
+      <button data-v="">Все</button>
+      <button data-v="Фокус">Фокус</button>
+      <button data-v="Фон">Фон</button>
+      <button data-v="Расслабление">Расслабление</button>
+      <button data-v="Сон">Сон</button>
+      <button data-v="Джаз">Джаз</button>
+      <button data-v="constructor">Конструктор</button>
+    </nav>
+
+    <section class="constructor" id="constructor">
+      <p class="lead">Белый, розовый и коричневый шум. Ползунок меняет звук сразу, яркость влево делает его мягче.</p>
+      <div class="balance" id="rig-balance" aria-hidden="true"></div>
+      <div class="presets" id="rig-presets"></div>
+      <div class="sliders">
+        <div class="slider">
+          <div class="slider-top"><label for="rig-white"><i class="tick" style="background:#d6d3d1"></i>Белый</label><span id="rig-white-v">0</span></div>
+          <input id="rig-white" type="range" min="0" max="100" value="0">
+        </div>
+        <div class="slider">
+          <div class="slider-top"><label for="rig-pink"><i class="tick" style="background:#f472b6"></i>Розовый</label><span id="rig-pink-v">58</span></div>
+          <input id="rig-pink" type="range" min="0" max="100" value="58">
+        </div>
+        <div class="slider">
+          <div class="slider-top"><label for="rig-brown"><i class="tick" style="background:#c2410c"></i>Коричневый</label><span id="rig-brown-v">72</span></div>
+          <input id="rig-brown" type="range" min="0" max="100" value="72">
+        </div>
+      </div>
+      <div class="fx-label">Эффекты</div>
+      <div class="sliders">
+        <div class="slider">
+          <div class="slider-top"><label for="rig-bright">Яркость</label><span id="rig-bright-v"></span></div>
+          <input id="rig-bright" type="range" min="0" max="100" value="48">
+        </div>
+        <div class="slider">
+          <div class="slider-top"><label for="rig-lowcut">Срез низа</label><span id="rig-lowcut-v"></span></div>
+          <input id="rig-lowcut" type="range" min="0" max="100" value="16">
+        </div>
+        <div class="slider">
+          <div class="slider-top"><label for="rig-warmth">Тепло</label><span id="rig-warmth-v">34</span></div>
+          <input id="rig-warmth" type="range" min="0" max="100" value="34">
+        </div>
+        <div class="slider">
+          <div class="slider-top"><label for="rig-drift">Дрейф</label><span id="rig-drift-v">26</span></div>
+          <input id="rig-drift" type="range" min="0" max="100" value="26">
+        </div>
+        <div class="slider">
+          <div class="slider-top"><label for="rig-width">Ширина</label><span id="rig-width-v">78</span></div>
+          <input id="rig-width" type="range" min="0" max="100" value="78">
+        </div>
+        <div class="slider">
+          <div class="slider-top"><label for="rig-space">Пространство</label><span id="rig-space-v">16</span></div>
+          <input id="rig-space" type="range" min="0" max="100" value="16">
+        </div>
+        <div class="slider">
+          <div class="slider-top"><label for="rig-mod">Модуляция</label><span id="rig-mod-v">16 Гц</span></div>
+          <input id="rig-mod" type="range" min="0" max="20" value="16">
+        </div>
+      </div>
+    </section>
+
+    <ul class="list" id="tracks"></ul>
+
+    <footer>Музыка генерируется в браузере в реальном времени. Пробел — пауза, ← → — переключение, S — перемешивание.</footer>
+  </main>
+
+  <script src="engine.js"></script>
+  <script src="tracks.js"></script>
+  <script src="jazz.js"></script>
+  <script src="ambient.js"></script>
+  <script src="constructor.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+[project]
+name = "focusgen"
+version = "0.1.0"
+description = "Clean-room focus audio generator: amplitude-modulated noise, drones and your own music"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26", "scipy>=1.11"]
+
+[project.scripts]
+focusgen = "focusgen:main"
+
+[tool.uv]
+package = false
