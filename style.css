@@ -53,7 +53,8 @@ h1 { font-size: 32px; font-weight: 500; letter-spacing: 0; line-height: 1.15; }
 #subtitle { color: var(--secondary); font-size: 14px; }
 #tune { color: var(--c1); font-size: 14px; min-height: 20px; }
 #tune:empty { display: none; }
-.meta { display: flex; gap: 16px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; margin-top: 4px; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; margin-top: 4px; }
+.meta span { white-space: nowrap; }
 
 .controls { display: flex; align-items: center; justify-content: center; gap: 24px; }
 .ctl {
@@ -125,6 +126,24 @@ input[type=range]:focus-visible { outline: 2px solid var(--c1); outline-offset: 
 .tick { width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
 .constructor input[type=range] { width: 100%; flex: none; }
 .fx-label { color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+.study {
+  border: 1px solid var(--line); border-radius: 16px; background: var(--card);
+  padding: 16px 20px; display: grid; gap: 14px;
+}
+.study-target {
+  position: relative; display: block;
+  border: 1px dashed rgba(237, 237, 237, 0.18); border-radius: 12px;
+  padding: 16px; color: var(--secondary); font-size: 14px; cursor: pointer;
+  transition: border-color 160ms var(--ease), color 160ms var(--ease);
+}
+.study-target:hover, .study.over .study-target { border-color: var(--c1); color: var(--text); }
+.study-target:focus-within { outline: 2px solid var(--c1); outline-offset: 2px; }
+.study-target input {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); border: 0;
+}
+.study.busy .study-target { cursor: progress; color: var(--text); }
 
 .list { list-style: none; display: grid; gap: 4px; }
 .list button {

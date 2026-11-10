@@ -69,6 +69,28 @@
       </div>
     </section>
 
+    <section class="study" id="study">
+      <label class="study-target">
+        <input id="study-file" type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac,.webm" aria-label="Композиция">
+        <span id="study-text">Скинь композицию. Найдём повтор, замедлим и замкнём в плавную петлю для учёбы.</span>
+      </label>
+      <div class="row">
+        <label>Что брать</label>
+        <div class="seg" id="study-mode">
+          <button type="button" data-v="one">Один момент</button>
+          <button type="button" data-v="stack" class="on">Накопление</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Темп</label>
+        <div class="seg" id="study-speed">
+          <button type="button" data-v="1">Как есть</button>
+          <button type="button" data-v="0.85" class="on">Медленнее</button>
+          <button type="button" data-v="0.7">Ещё медленнее</button>
+        </div>
+      </div>
+    </section>
+
     <nav class="seg filter" id="filter">
       <button data-v="">Все</button>
       <button data-v="Фокус">Фокус</button>
@@ -76,6 +98,7 @@
       <button data-v="Расслабление">Расслабление</button>
       <button data-v="Сон">Сон</button>
       <button data-v="Джаз">Джаз</button>
+      <button data-v="Учёба">Учёба</button>
       <button data-v="constructor">Конструктор</button>
     </nav>
 
@@ -132,7 +155,7 @@
 
     <ul class="list" id="tracks"></ul>
 
-    <footer>Музыка генерируется в браузере в реальном времени. Пробел — пауза, ← → — переключение, S — перемешивание.</footer>
+    <footer>Музыка генерируется в браузере. Свою композицию можно скинуть выше — из повтора соберётся петля. Пробел — пауза, ← → — переключение, S — перемешивание.</footer>
   </main>
 
   <script src="engine.js"></script>
@@ -140,6 +163,7 @@
   <script src="jazz.js"></script>
   <script src="ambient.js"></script>
   <script src="constructor.js"></script>
+  <script src="study.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -34,7 +34,8 @@
   };
   const scheduleAuto = () => {
     const live = mode === 'rig' ? rig && rig.running : rt;
-    autoAt = shuffle && playing && engine.ctx && live ? engine.ctx.currentTime + rand(...SHUFFLE_MIN) * 60 : null;
+    const hold = mode === 'track' && TRACKS[idx] && TRACKS[idx].study;
+    autoAt = shuffle && playing && !hold && engine.ctx && live ? engine.ctx.currentTime + rand(...SHUFFLE_MIN) * 60 : null;
   };
   const setShuffle = on => {
     shuffle = on;
@@ -62,11 +63,12 @@
     ul.innerHTML = '';
     visible().forEach(k => {
       const tr = TRACKS[k], li = document.createElement('li');
+      const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
       li.innerHTML = `
         <button>
           <span class="sw" style="background:${tr.colors[0]}"></span>
-          <span><div class="name">${tr.name}</div><div class="sub">${tr.subtitle}</div></span>
-          <span class="right">${tr.category}<br>${tr.mod} Гц</span>
+          <span><div class="name">${esc(tr.name)}</div><div class="sub">${esc(tr.subtitle)}</div></span>
+          <span class="right">${esc(tr.category)}<br>${tr.mod} Гц</span>
         </button>`;
       li.querySelector('button').dataset.k = k;
       li.querySelector('button').onclick = () => play(k);
@@ -365,6 +367,158 @@
     }
     requestAnimationFrame(frame);
   }
+
+  let studyMode = localStorage.getItem('potok.studyMode') || 'stack';
+  let studySpeed = localStorage.getItem('potok.studySpeed') || '0.85';
+  if (studyMode !== 'one' && studyMode !== 'stack') studyMode = 'stack';
+  if (!['1', '0.85', '0.7'].includes(studySpeed)) studySpeed = '0.85';
+  let studyHold = null, studyJob = 0;
+
+  function markSeg(id, v) {
+    document.querySelectorAll(`#${id} button`).forEach(b => b.classList.toggle('on', b.dataset.v === String(v)));
+  }
+
+  function studyName(file) {
+    const base = file.name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim();
+    return (base || 'Композиция').slice(0, 48);
+  }
+
+  function studySubtitle(meta) {
+    const sec = meta.seconds.toFixed(1).replace('.', ',');
+    const many = meta.repeats % 10 === 1 && meta.repeats % 100 !== 11 ? 'повтора' : 'повторов';
+    const what = meta.kind === 'stack' ? `из ${meta.repeats} ${many}` : meta.kind === 'even' ? 'ровный кусок' : 'один момент';
+    const rate = Math.abs(meta.speed - 1) < 0.01 ? 'исходный темп' : `×${String(meta.speed).replace('.', ',')}`;
+    return `${meta.trimmed ? 'первые 6 мин · ' : ''}${sec} с · ${what} · ${rate}`;
+  }
+
+  function studyTrack(name, subtitle, buffer) {
+    return {
+      name, subtitle, category: 'Учёба', mod: 14, study: true, vary: false, bpm: 40, level: 0.9,
+      colors: ['#6f8f72', '#d9c7a1'],
+      setup(r) {
+        const src = r.ctx.createBufferSource();
+        src.buffer = buffer;
+        src.loop = true;
+        const lp = r.filter('lowpass', 9800, 0.7);
+        src.connect(lp);
+        lp.connect(r.bus(0.74, 0.38));
+        src.start(r.ctx.currentTime);
+        r.sources.push(src);
+      },
+      step() {},
+    };
+  }
+
+  function mountStudy(tr) {
+    let k = TRACKS.findIndex(t => t.study);
+    if (k >= 0) TRACKS[k] = tr;
+    else {
+      TRACKS.unshift(tr);
+      k = 0;
+      history = history.map(h => h + 1);
+    }
+    history = history.filter(h => h !== k && h < TRACKS.length);
+    filter = 'Учёба';
+    $('#constructor').classList.remove('on');
+    $('#tracks').style.display = '';
+    document.querySelectorAll('#filter button').forEach(b => b.classList.toggle('on', b.dataset.v === 'Учёба'));
+    renderList();
+    play(k);
+  }
+
+  async function renderStudy(id) {
+    if (!studyHold || id !== studyJob) return;
+    const card = $('#study');
+    card.classList.add('busy');
+    $('#study-text').textContent = studyMode === 'stack' ? 'Складываем повторы…' : 'Ищем повтор…';
+    await new Promise(r => setTimeout(r, 30));
+    if (id !== studyJob) return;
+    let result = null;
+    try {
+      result = Study.prepare(studyHold.channels, studyHold.sampleRate, {
+        mode: studyMode,
+        speed: Number(studySpeed),
+        trimmed: studyHold.trimmed,
+      });
+    } catch (_) {}
+    if (id !== studyJob) return;
+    card.classList.remove('busy');
+    if (!result) {
+      $('#study-text').textContent = 'В этом файле почти нет звука. Скинь другую композицию.';
+      return;
+    }
+    const buf = engine.ctx.createBuffer(2, result.channels[0].length, result.sampleRate);
+    buf.copyToChannel(result.channels[0], 0);
+    buf.copyToChannel(result.channels[1], 1);
+    mountStudy(studyTrack(studyHold.name, studySubtitle(result.meta), buf));
+    $('#study-text').textContent = 'Готово. Скинь другую композицию, чтобы заменить.';
+  }
+
+  async function loadStudy(file) {
+    if (!file) return;
+    const id = ++studyJob;
+    engine.init();
+    const card = $('#study');
+    card.classList.add('busy');
+    $('#study-text').textContent = 'Читаем файл…';
+    try {
+      const audio = await engine.ctx.decodeAudioData(await file.arrayBuffer());
+      if (id !== studyJob) return;
+      const cap = Math.min(audio.length, Math.floor(6 * 60 * audio.sampleRate));
+      const channels = [];
+      for (let c = 0; c < Math.min(2, audio.numberOfChannels); c++) {
+        const data = audio.getChannelData(c);
+        channels.push(cap === data.length ? data : data.subarray(0, cap));
+      }
+      studyHold = {
+        audio, channels, sampleRate: audio.sampleRate, name: studyName(file),
+        trimmed: audio.length > cap + audio.sampleRate,
+      };
+    } catch (_) {
+      if (id !== studyJob) return;
+      card.classList.remove('busy');
+      $('#study-text').textContent = 'Не получилось прочитать этот файл.';
+      return;
+    }
+    await renderStudy(id);
+  }
+
+  function chooseStudy(kind, value) {
+    if (kind === 'mode') {
+      studyMode = value;
+      localStorage.setItem('potok.studyMode', value);
+      markSeg('study-mode', value);
+    } else {
+      studySpeed = value;
+      localStorage.setItem('potok.studySpeed', value);
+      markSeg('study-speed', value);
+    }
+    if (studyHold && !$('#study').classList.contains('busy')) renderStudy(++studyJob);
+  }
+
+  markSeg('study-mode', studyMode);
+  markSeg('study-speed', studySpeed);
+  document.querySelectorAll('#study-mode button').forEach(b => { b.onclick = () => chooseStudy('mode', b.dataset.v); });
+  document.querySelectorAll('#study-speed button').forEach(b => { b.onclick = () => chooseStudy('speed', b.dataset.v); });
+  $('#study-file').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (f) loadStudy(f);
+  });
+  const studyCard = $('#study');
+  ['dragenter', 'dragover'].forEach(ev => studyCard.addEventListener(ev, e => {
+    e.preventDefault();
+    studyCard.classList.add('over');
+  }));
+  studyCard.addEventListener('dragleave', e => {
+    if (!studyCard.contains(e.relatedTarget)) studyCard.classList.remove('over');
+  });
+  studyCard.addEventListener('drop', e => {
+    e.preventDefault();
+    studyCard.classList.remove('over');
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) loadStudy(f);
+  });
 
   for (const pre of RIG_PRESETS) {
     const b = document.createElement('button');
