@@ -368,9 +368,9 @@
     requestAnimationFrame(frame);
   }
 
-  let studyMode = localStorage.getItem('potok.studyMode') || 'stack';
+  let studyMode = new URLSearchParams(location.search).has('upload') ? 'auto' : localStorage.getItem('potok.studyMode') || 'auto';
   let studySpeed = localStorage.getItem('potok.studySpeed') || '0.85';
-  if (studyMode !== 'one' && studyMode !== 'stack') studyMode = 'stack';
+  if (!['auto', 'whole', 'one', 'stack'].includes(studyMode)) studyMode = 'auto';
   if (!['1', '0.85', '0.7'].includes(studySpeed)) studySpeed = '0.85';
   let studyHold = null, studyJob = 0;
 
@@ -386,7 +386,7 @@
   function studySubtitle(meta) {
     const sec = meta.seconds.toFixed(1).replace('.', ',');
     const many = meta.repeats % 10 === 1 && meta.repeats % 100 !== 11 ? 'повтора' : 'повторов';
-    const what = meta.kind === 'stack' ? `из ${meta.repeats} ${many}` : meta.kind === 'even' ? 'ровный кусок' : 'один момент';
+    const what = meta.kind === 'whole' ? 'целиком, без обработки' : meta.kind === 'stack' ? `из ${meta.repeats} ${many}` : meta.kind === 'even' ? 'ровный кусок' : 'один момент';
     const rate = Math.abs(meta.speed - 1) < 0.01 ? 'исходный темп' : `×${String(meta.speed).replace('.', ',')}`;
     return `${meta.trimmed ? 'первые 6 мин · ' : ''}${sec} с · ${what} · ${rate}`;
   }
@@ -430,7 +430,8 @@
     if (!studyHold || id !== studyJob) return;
     const card = $('#study');
     card.classList.add('busy');
-    $('#study-text').textContent = studyMode === 'stack' ? 'Складываем повторы…' : 'Ищем повтор…';
+    document.querySelectorAll('#study-speed button').forEach(b => { b.disabled = studyMode === 'whole' || studyMode === 'auto'; });
+    $('#study-text').textContent = studyMode === 'whole' ? 'Готовим воспроизведение целиком…' : studyMode === 'stack' ? 'Складываем повторы…' : 'Ищем повтор…';
     await new Promise(r => setTimeout(r, 30));
     if (id !== studyJob) return;
     let result = null;
@@ -454,7 +455,68 @@
     $('#study-text').textContent = 'Готово. Скинь другую композицию, чтобы заменить.';
   }
 
+  let songBusy = false;
+  async function uploadSong(file) {
+    if (songBusy) return;
+    const status = $('#study-text');
+    if (location.protocol === 'file:') {
+      status.textContent = 'Для удаления голоса откройте http://127.0.0.1:8877 — нужен локальный сервер.';
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) { status.textContent = 'Максимум 100 МБ.'; return; }
+    songBusy = true;
+    $('#study-file').disabled = true;
+    document.querySelectorAll('#study-mode button').forEach(b => b.disabled = true);
+    $('#song-results').replaceChildren();
+    studyHold = null;
+    ++studyJob;
+    try {
+      status.textContent = 'Загружаем песню на локальную обработку…';
+      const response = await fetch('/api/jobs', {method:'POST', headers:{'X-Potok-Upload':'1'}, body:file});
+      const task = await response.json();
+      if (!response.ok) throw new Error(task.message || 'Не удалось начать обработку.');
+      let job;
+      do {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const poll = await fetch('/api/jobs/' + task.id);
+        job = await poll.json();
+        if (!poll.ok || job.status === 'error') throw new Error(job.message);
+        status.textContent = job.message || 'Готовим варианты…';
+      } while (job.status !== 'done');
+      status.textContent = 'Готово. Выберите вариант ниже — он будет играть по кругу.';
+      for (const [i, candidate] of job.candidates.entries()) {
+        const row = document.createElement('div'); row.className = 'row';
+        const button = document.createElement('button'); button.type = 'button';
+        button.textContent = `▶ Вариант ${i+1} · ${Math.round(candidate.end-candidate.start)} с`;
+        button.onclick = async () => {
+          button.disabled = true;
+          try {
+            engine.init(); await engine.ctx.resume();
+            const audio = await fetch(candidate.url);
+            if (!audio.ok) throw new Error('Не удалось загрузить петлю.');
+            const buffer = await engine.ctx.decodeAudioData(await audio.arrayBuffer());
+            mountStudy(studyTrack(studyName(file), `Вариант ${i+1} · без вокала · ${Math.round(buffer.duration)} с`, buffer));
+          } catch (error) { status.textContent = error.message; }
+          finally { button.disabled = false; }
+        };
+        const download = document.createElement('a'); download.href = candidate.url;
+        download.download = `potok-${i+1}.wav`; download.textContent = 'Скачать';
+        row.append(button, download);
+        if (candidate.warnings.length) {
+          const note = document.createElement('span'); note.textContent = candidate.warnings.join(' · '); row.append(note);
+        }
+        $('#song-results').append(row);
+      }
+    } catch (error) { status.textContent = error.message || 'Сервер обработки недоступен.'; }
+    finally {
+      songBusy = false; $('#study-file').disabled = false;
+      document.querySelectorAll('#study-mode button').forEach(b => b.disabled = false);
+    }
+  }
+
   async function loadStudy(file) {
+    if (songBusy) return;
+    if (studyMode === 'auto') return uploadSong(file);
     if (!file) return;
     const id = ++studyJob;
     engine.init();
@@ -493,11 +555,13 @@
       localStorage.setItem('potok.studySpeed', value);
       markSeg('study-speed', value);
     }
-    if (studyHold && !$('#study').classList.contains('busy')) renderStudy(++studyJob);
+    document.querySelectorAll('#study-speed button').forEach(b => b.disabled = ['auto', 'whole'].includes(studyMode));
+    if (studyMode !== 'auto' && studyHold && !$('#study').classList.contains('busy')) renderStudy(++studyJob);
   }
 
   markSeg('study-mode', studyMode);
   markSeg('study-speed', studySpeed);
+  document.querySelectorAll('#study-speed button').forEach(b => b.disabled = ['auto', 'whole'].includes(studyMode));
   document.querySelectorAll('#study-mode button').forEach(b => { b.onclick = () => chooseStudy('mode', b.dataset.v); });
   document.querySelectorAll('#study-speed button').forEach(b => { b.onclick = () => chooseStudy('speed', b.dataset.v); });
   $('#study-file').addEventListener('change', e => {

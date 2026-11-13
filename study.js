@@ -415,6 +415,11 @@ const Study = (() => {
   }
 
   function prepare(channels, sampleRate, opts = {}) {
+    if (opts.mode === 'whole') {
+      return { channels: channels.length === 1 ? [channels[0], channels[0].slice()] : channels,
+        sampleRate, meta: { seconds: channels[0].length / sampleRate, repeats: 1,
+          speed: 1, kind: 'whole', score: 0, trimmed: !!opts.trimmed } };
+    }
     const found = find(channels, sampleRate);
     const mode = opts.mode === 'one' ? 'one' : 'stack';
     const speed = Number(opts.speed) || 1;

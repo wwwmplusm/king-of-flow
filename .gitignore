@@ -4,3 +4,6 @@ __pycache__/
 work.wav
 .env
 .env.*
+
+.venv-separation/
+personal/

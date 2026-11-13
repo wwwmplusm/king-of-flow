@@ -72,11 +72,13 @@
     <section class="study" id="study">
       <label class="study-target">
         <input id="study-file" type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac,.webm" aria-label="Композиция">
-        <span id="study-text">Скинь композицию. Найдём повтор, замедлим и замкнём в плавную петлю для учёбы.</span>
+        <span id="study-text">Выберите песню — уберём голос и подготовим до трёх длинных петель. Обработка на этом компьютере, обычно несколько минут.</span>
       </label>
       <div class="row">
         <label>Что брать</label>
         <div class="seg" id="study-mode">
+          <button type="button" data-v="auto">Убрать голос и сделать фон</button>
+          <button type="button" data-v="whole">Готовая петля</button>
           <button type="button" data-v="one">Один момент</button>
           <button type="button" data-v="stack" class="on">Накопление</button>
         </div>
@@ -90,6 +92,8 @@
         </div>
       </div>
     </section>
+
+    <section id="song-results" class="settings" aria-live="polite"></section>
 
     <nav class="seg filter" id="filter">
       <button data-v="">Все</button>
@@ -162,6 +166,7 @@
   <script src="tracks.js"></script>
   <script src="jazz.js"></script>
   <script src="ambient.js"></script>
+  <script src="collection.js"></script>
   <script src="constructor.js"></script>
   <script src="study.js"></script>
   <script src="app.js"></script>
