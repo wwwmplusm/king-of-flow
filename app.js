@@ -192,6 +192,7 @@
   }
 
   function play(k, remember = true) {
+    if (k === undefined) return;
     mode = 'track';
     engine.init();
     const ctx = engine.ctx;
@@ -368,9 +369,12 @@
     requestAnimationFrame(frame);
   }
 
-  let studyMode = new URLSearchParams(location.search).has('upload') ? 'auto' : localStorage.getItem('potok.studyMode') || 'auto';
+  const canRemoveVocals = location.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(location.hostname);
+  const studyModes = canRemoveVocals ? ['auto', 'stack', 'whole', 'one'] : ['stack', 'whole', 'one'];
+  let studyMode = canRemoveVocals && new URLSearchParams(location.search).has('upload')
+    ? 'auto' : localStorage.getItem('potok.studyMode');
   let studySpeed = localStorage.getItem('potok.studySpeed') || '0.85';
-  if (!['auto', 'whole', 'one', 'stack'].includes(studyMode)) studyMode = 'auto';
+  if (!studyModes.includes(studyMode)) studyMode = studyModes[0];
   if (!['1', '0.85', '0.7'].includes(studySpeed)) studySpeed = '0.85';
   let studyHold = null, studyJob = 0;
 
@@ -459,10 +463,6 @@
   async function uploadSong(file) {
     if (songBusy) return;
     const status = $('#study-text');
-    if (location.protocol === 'file:') {
-      status.textContent = 'Для удаления голоса откройте http://127.0.0.1:8877 — нужен локальный сервер.';
-      return;
-    }
     if (file.size > 100 * 1024 * 1024) { status.textContent = 'Максимум 100 МБ.'; return; }
     songBusy = true;
     $('#study-file').disabled = true;
@@ -559,6 +559,8 @@
     if (studyMode !== 'auto' && studyHold && !$('#study').classList.contains('busy')) renderStudy(++studyJob);
   }
 
+  if (canRemoveVocals) $('#study-text').textContent = 'Выберите песню, чтобы подготовить петлю. Удаление голоса может занять несколько минут.';
+  else $('#study-mode button[data-v="auto"]').remove();
   markSeg('study-mode', studyMode);
   markSeg('study-speed', studySpeed);
   document.querySelectorAll('#study-speed button').forEach(b => b.disabled = ['auto', 'whole'].includes(studyMode));
